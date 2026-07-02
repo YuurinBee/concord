@@ -31,17 +31,29 @@ Concord is defined by a series of **CORD** documents. Like Nostr's NIPs, each is
 
 ## How it works, at the simplest level
 
-**Identity is a keypair** — the same Nostr `npub` you use for DMs. It signs everything you do, so others can verify it was really you.
+A community is just a **shared key** (holding it *is* membership), a **signed roster** anyone can verify, and a handful of **relays** that only ever carry sealed blobs.
 
-**A community is two secrets, kept apart.** The `community_id` is its permanent identity, a hash committing to the owner's key (`sha256("concord/community" || owner_pubkey || owner_salt)`), so nobody can forge a different owner onto it. The `community_root` is its access key — **holding it *is* membership.** New members get it in their invite; it rotates when someone is removed, without the community ever losing its identity.
+```mermaid
+flowchart TD
+    owner["👑 Owner<br/><i>community identity is a hash of their key —<br/>unforgeable, provable by every member</i>"]
 
-**Everything on the wire is a Private Stream.** Each plane (the roster, each channel, the guestbook) lives at a pubkey *derived* from a community secret, so only members can even find it, let alone read it — and rotating the epoch rotates the address, so old and new traffic can't be linked.
+    subgraph community["The Community"]
+        root["🔑 Shared root key<br/><i>holding it = membership</i>"]
+        roster["📜 Signed roster<br/><i>owner → admins → mods → members<br/>every client re-checks it</i>"]
+        subgraph channels["Channels — each its own key"]
+            g["🔒 #general"]
+            a["🔒 #admins"]
+        end
+    end
 
-**A message travels in three layers:** signed by **your identity key** (proof of who said it, tucked *inside* the encryption), locked with the **channel key** (the shared secret every member holds), and sealed in a **throwaway envelope** at a rotating label (so relays can't tell who posts where).
+    owner -->|"founds & signs"| community
+    community -->|"derived stream addresses,<br/>only members can find or read"| relays[("📡 Relays<br/>see only noise")]
 
-**Moderation is rejection, not prevention.** Anyone *can* publish a "ban," but every honest client independently re-checks whether the signer holds a role, traceable to the owner, that outranks the target — and drops it if not. The whole community is its own bouncer.
+    m1["👤 Member"] -->|"holds the key"| relays
+    m2["👤 Member"] -->|"holds the key"| relays
+```
 
-**Removing someone means changing the locks.** You can't un-give a key, so a hard ban is a *Refounding*: the community rolls to a new key, handed only to the members who should still be there. The old room stays readable but silent — the removed member is left holding a key to a room where nothing new will ever happen.
+Authority is a signature, not a switch — a forged "ban" is simply dropped because it doesn't trace to the owner. And removing someone for real means **changing the locks**: the community rolls to a new key handed only to who's left.
 
 ## Compared to other solutions
 
