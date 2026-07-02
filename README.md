@@ -31,38 +31,17 @@ Concord is defined by a series of **CORD** documents. Like Nostr's NIPs, each is
 
 ## How it works, at the simplest level
 
-**Identity is a keypair.** The same Nostr `npub` you use for DMs. It signs everything you do so others can verify it was really you.
+**Identity is a keypair** — the same Nostr `npub` you use for DMs. It signs everything you do, so others can verify it was really you.
 
-**A community is two secrets, kept apart:**
+**A community is two secrets, kept apart.** The `community_id` is its permanent identity, a hash committing to the owner's key (`sha256("concord/community" || owner_pubkey || owner_salt)`), so nobody can forge a different owner onto it. The `community_root` is its access key — **holding it *is* membership.** New members get it in their invite; it rotates when someone is removed, without the community ever losing its identity.
 
-- `community_id` — its permanent identity, a hash committing to the owner's key. It proves who founded the community and never changes.
-  ```
-  community_id = sha256("concord/community" || owner_pubkey || owner_salt)
-  ```
-  You can't forge a different owner onto an existing `community_id` — that's a second-preimage on SHA-256.
+**Everything on the wire is a Private Stream.** Each plane (the roster, each channel, the guestbook) lives at a pubkey *derived* from a community secret, so only members can even find it, let alone read it — and rotating the epoch rotates the address, so old and new traffic can't be linked.
 
-- `community_root` — its access key. **Holding it *is* membership.** New members get it in their invite; it rotates when someone is removed, without the community ever losing its identity.
+**A message travels in three layers:** signed by **your identity key** (proof of who said it, tucked *inside* the encryption), locked with the **channel key** (the shared secret every member holds), and sealed in a **throwaway envelope** at a rotating label (so relays can't tell who posts where).
 
-**Everything on the wire is a Private Stream.** Each plane (the roster, each channel, the guestbook) is addressed by a pubkey *derived* from a community secret — so only members can even find it, let alone read it:
+**Moderation is rejection, not prevention.** Anyone *can* publish a "ban," but every honest client independently re-checks whether the signer holds a role, traceable to the owner, that outranks the target — and drops it if not. The whole community is its own bouncer.
 
-```
-group_key(label, secret, id, epoch):
-    seed = hkdf(secret, label, id, epoch)   // a 32-byte seed
-    sk   = normalize(seed)                   // a secp256k1 secret key
-    pk   = xonly_pubkey(sk)                  // the stream address on relays
-```
-
-Members query `{"kinds":[1059], "authors":[pk]}` and get the room's traffic. Rotate the epoch and `pk` changes — so old and new traffic can't even be linked.
-
-**A message travels in three layers:**
-
-1. Signed by **your identity key** — proof of who said it, tucked *inside* the encryption where only members see it.
-2. Locked with the **channel key** — the shared secret every member of that room holds.
-3. Sealed in a **throwaway envelope** under a one-time key at a rotating label — so relays can't build a picture of who posts where.
-
-**Moderation is rejection, not prevention.** Anyone *can* publish a "ban" — but every honest client independently re-checks: does this action's signer hold a role, traceable to the owner, that outranks the target? If not, everyone reaches the same verdict and drops it. The whole community is its own bouncer.
-
-**Removing someone means changing the locks.** You can't un-give a key. So a hard ban is a *Refounding*: the community rolls to a new key, handed only to the members who should still be there. The old room stays readable but silent; the removed member is left holding a key to a room where nothing new will ever happen.
+**Removing someone means changing the locks.** You can't un-give a key, so a hard ban is a *Refounding*: the community rolls to a new key, handed only to the members who should still be there. The old room stays readable but silent — the removed member is left holding a key to a room where nothing new will ever happen.
 
 ## Compared to other solutions
 
