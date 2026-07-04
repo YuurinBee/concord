@@ -7,7 +7,7 @@ Conventions used throughout:
 - `<angle brackets>` are placeholders. Keys, ids, and hashes are lowercase hex (x-only pubkeys and ids are 32 bytes / 64 hex chars) unless noted.
 - `nip44_encrypt(key, {...})` stands for the NIP-44 ciphertext of the serialized inner event — shown structurally so the nesting is readable.
 - Rumors (the innermost events) are **unsigned** and carry no `sig`; the seal carries the author's real signature (CORD-01).
-- `["ms", "<0..999>"]` is the sub-second remainder; true event time is `created_at * 1000 + ms` (CORD-02 §4).
+- Events order by the rumor's `created_at`, ties breaking by the lexically lower rumor id (CORD-02 §4).
 - Examples are illustrative, not verifiable test vectors: ids, signatures, and derived addresses are placeholders, not real derivations.
 
 ## Contents
@@ -59,8 +59,7 @@ Chat, Guestbook, and rekey planes use the **encrypted seal** (kind `20013`): the
       "content": "Hey chat!",
       "tags": [
         ["channel", "<channel_id>"],
-        ["epoch", "0"],
-        ["ms", "417"]
+        ["epoch", "0"]
       ],
       "created_at": 1686840217
     }),
@@ -129,8 +128,7 @@ NIP-29 shape: the `content` is the message text.
   "content": "Hey chat!",
   "tags": [
     ["channel", "<channel_id>"],
-    ["epoch", "0"],
-    ["ms", "417"]
+    ["epoch", "0"]
   ],
   "created_at": 1686840217
 }
@@ -146,7 +144,6 @@ A reply quotes the parent with a `q` tag (NIP-C7), citing the parent message's *
   "tags": [
     ["channel", "<channel_id>"],
     ["epoch", "0"],
-    ["ms", "902"],
     ["q", "<parent message rumor id>", "", "<parent author>"]
   ],
   "created_at": 1686840304
@@ -165,7 +162,6 @@ NIP-25 shape: `content` is the reaction (`"+"`, an emoji, …), tags name the re
   "tags": [
     ["channel", "<channel_id>"],
     ["epoch", "0"],
-    ["ms", "112"],
     ["e", "<message rumor id>"],
     ["p", "<message author>"]
   ],
@@ -185,7 +181,6 @@ NIP-09 shape: `e` tags name the author's own rumors to delete, `content` an opti
   "tags": [
     ["channel", "<channel_id>"],
     ["epoch", "0"],
-    ["ms", "533"],
     ["e", "<own message rumor id>"]
   ],
   "created_at": 1686841000
@@ -204,7 +199,6 @@ The CORDs register the kind but don't yet pin its fields; this shape is illustra
   "tags": [
     ["channel", "<channel_id>"],
     ["epoch", "0"],
-    ["ms", "781"],
     ["e", "<own message rumor id>"]
   ],
   "created_at": 1686840610
@@ -222,8 +216,7 @@ Realtime peer signaling for WebXDC apps. The CORDs register the kind but don't y
   "content": "<app payload>",
   "tags": [
     ["channel", "<channel_id>"],
-    ["epoch", "0"],
-    ["ms", "266"]
+    ["epoch", "0"]
   ],
   "created_at": 1686840700
 }
@@ -240,8 +233,7 @@ The one **ephemeral** action: same seal-and-rumor shape at the same Channel addr
   "content": "",
   "tags": [
     ["channel", "<channel_id>"],
-    ["epoch", "0"],
-    ["ms", "45"]
+    ["epoch", "0"]
   ],
   "created_at": 1686840216
 }
@@ -249,7 +241,7 @@ The one **ephemeral** action: same seal-and-rumor shape at the same Channel addr
 
 ## 3. Guestbook Plane rumors
 
-Encrypted seals (§1.1) at `guestbook_pk` (CORD-02 §5). The Guestbook coalesces flat — one final state per npub, latest wins by millisecond time, ties broken by the lower rumor id.
+Encrypted seals (§1.1) at `guestbook_pk` (CORD-02 §5). The Guestbook coalesces flat — one final state per npub, latest `created_at` wins, ties broken by the lower rumor id.
 
 ### 3.1 Kind 3306 — Join / Leave
 
@@ -262,7 +254,6 @@ Self-signed; the `content` is the verb. A Join MAY carry invite attribution echo
   "pubkey": "<member>",
   "content": "join",
   "tags": [
-    ["ms", "128"],
     ["invite", "<creator pubkey>", "Reddit"]      // optional, Joins only
   ],
   "created_at": 1719800000
@@ -273,7 +264,7 @@ Self-signed; the `content` is the verb. A Join MAY carry invite attribution echo
   "kind": 3306,
   "pubkey": "<member>",
   "content": "leave",
-  "tags": [ ["ms", "660"] ],
+  "tags": [],
   "created_at": 1722400000
 }
 ```
@@ -288,7 +279,6 @@ Admin-signed, names its target, and cites the Grant it acts under (the `vac`, CO
   "pubkey": "<admin>",
   "content": "",
   "tags": [
-    ["ms", "301"],
     ["p", "<target pubkey>"],
     ["vac", "<grant eid>", "<grant version>", "<grant edition hash>"]
   ],
@@ -306,7 +296,6 @@ Refounder-signed, seeding the new epoch's Guestbook after a Refounding (CORD-02 
   "pubkey": "<refounder>",
   "content": "[\"<member pubkey>\", \"<member pubkey>\", \"<member pubkey>\"]",
   "tags": [
-    ["ms", "0"],
     ["snap", "<snapshot id>", "1", "2"]           // chunk 1 of 2
   ],
   "created_at": 1722500000
