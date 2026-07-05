@@ -410,7 +410,7 @@ A deletion is an edition setting the terminal flag:
 `eid` = `invite_links_locator(community_id, creator)` (CORD-02 A.6). Locators only, never tokens or URLs; honored while its author holds `CREATE_INVITE`.
 
 ```jsonc
-["<bundle_id hex>", "<bundle_id hex>"]
+["<link_signer pubkey hex>", "<link_signer pubkey hex>"]
 ```
 
 ### vsk 10 — Dissolved tombstone (CORD-02 §9)
@@ -457,26 +457,26 @@ Each `wrapped` plaintext is exactly 72 bytes — `scope_id[32] ‖ epoch_be[8] �
 
 ## 6. Outside the wrap
 
-Three kinds relays see bare, signed by ordinary (or token-derived) keys.
+Three kinds relays see bare, signed by ordinary (or per-link) keys.
 
 ### 6.1 Kind 33301 — public invite bundle (CORD-05 §2)
 
-Addressable, at the token-derived coordinate, signed by the token-derived `bundle_signer`; a fetcher drops any event at the coordinate not carrying that signer's signature. The `vsk` tag marks it live (`6`) or a revocation tombstone (`9`).
+Addressable, authored by the link's dedicated `link_signer` keypair with an empty `d` identifier — the coordinate `(33301, link_signer, "")` is exactly what the link's naddr names. The `vsk` tag marks it live (`6`) or a revocation tombstone (`9`).
 
-The signature guard excludes only parties *without* the link: since `bundle_signer` derives from the token, **any link-holder can re-post, replace, or tombstone the bundle** — an accepted tradeoff (CORD-05 §2). A hostile replacement still can't smuggle a false owner (the `community_id` self-certifies, CORD-05 §1), but a malicious invitee can kill or corrupt the link; the remedy is minting a fresh one.
+The guard is the coordinate itself: a squatter's event is a different author, hence a different coordinate, and never matches the fetcher's filter; and since the `link_signer` secret lives only in the creator's Invite List (CORD-05 §4), a link-holder can preview and join but can never re-post, replace, or tombstone the bundle. (An earlier draft derived the signer from the token and accepted link-holder forgery as a tradeoff; the per-link keypair deletes that threat class.) A hostile bundle still can't smuggle a false owner regardless — the `community_id` self-certifies (CORD-05 §1).
 
 ```jsonc
 // live bundle
 {
   "kind": 33301,
-  "pubkey": "<bundle_signer pubkey>",
+  "pubkey": "<link_signer pubkey>",
   "content": "<nip44_encrypt(bundle_key, bundle)>",
   "tags": [
-    ["d", "<bundle_id hex>"],
+    ["d", ""],
     ["vsk", "6"]
   ],
   "created_at": 1719800000,
-  "sig": "<bundle_signer signature>"
+  "sig": "<link_signer signature>"
 }
 ```
 
@@ -506,14 +506,14 @@ Revoking the link re-posts the same coordinate as a tombstone:
 ```jsonc
 {
   "kind": 33301,
-  "pubkey": "<bundle_signer pubkey>",
+  "pubkey": "<link_signer pubkey>",
   "content": "",
   "tags": [
-    ["d", "<bundle_id hex>"],
+    ["d", ""],
     ["vsk", "9"]
   ],
   "created_at": 1722400000,
-  "sig": "<bundle_signer signature>"
+  "sig": "<link_signer signature>"
 }
 ```
 
@@ -573,9 +573,10 @@ The encrypted list's plaintext:
 {
   "entries": [
     {
-      "token": "<hex>",                           // the link's secret AND its merge key
+      "token": "<hex>",                           // the link's unlock secret AND its merge key
+      "signer_sk": "<hex>",                       // the link_signer secret (CORD-05 §2)
       "community_id": "<hex>",
-      "url": "https://vectorapp.io/invite#<fragment>",
+      "url": "https://vectorapp.io/invite/<naddr>#<fragment>",
       "label": "Reddit",                          // optional
       "created_at": 1719800000,
       "expires_at": 1722400000                    // optional
